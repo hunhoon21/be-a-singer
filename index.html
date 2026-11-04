@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>한 문장씩, be a singer</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #20212b;
+        background: #f7f5f2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 48px 20px;
+      }
+
+      main {
+        width: min(100%, 680px);
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        color: #7653a6;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 8px 0;
+        font-size: clamp(2rem, 6vw, 3rem);
+        letter-spacing: -0.05em;
+      }
+
+      .intro {
+        margin: 0 0 32px;
+        color: #626371;
+        line-height: 1.7;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+
+      textarea {
+        display: block;
+        width: 100%;
+        min-height: 180px;
+        padding: 16px;
+        border: 1px solid #d9d5df;
+        border-radius: 12px;
+        background: #fff;
+        color: inherit;
+        font: inherit;
+        line-height: 1.6;
+        resize: vertical;
+      }
+
+      textarea:focus-visible,
+      button:focus-visible {
+        outline: 3px solid #bba7db;
+        outline-offset: 2px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      button {
+        min-height: 44px;
+        padding: 10px 18px;
+        border: 0;
+        border-radius: 9px;
+        background: #7049a4;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+      }
+
+      button:hover:not(:disabled) {
+        background: #5c378d;
+      }
+
+      button:disabled {
+        background: #e5e1e9;
+        color: #88838e;
+        cursor: not-allowed;
+      }
+
+      .message {
+        min-height: 1.5em;
+        margin: 12px 0 0;
+        color: #a13838;
+      }
+
+      .practice {
+        margin-top: 40px;
+        padding: 24px;
+        border: 1px solid #e8e3ec;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 12px 32px rgb(46 32 59 / 6%);
+      }
+
+      .practice[hidden] {
+        display: none;
+      }
+
+      .progress {
+        margin: 0;
+        color: #7653a6;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .sentence {
+        min-height: 100px;
+        display: grid;
+        place-items: center;
+        margin: 12px 0;
+        text-align: center;
+        font-size: clamp(1.5rem, 5vw, 2rem);
+        font-weight: 650;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+
+      .practice .actions {
+        justify-content: space-between;
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding: 32px 16px;
+        }
+
+        .practice {
+          padding: 20px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">be a singer</p>
+      <h1>한 문장씩 연습해요</h1>
+      <p class="intro">연습할 영어 가사를 붙여넣으면 문장 단위로 나누어 한 문장씩 보여드려요.</p>
+
+      <form id="lyrics-form">
+        <label for="lyrics">연습할 영어 가사</label>
+        <textarea id="lyrics" name="lyrics" placeholder="연습하고 싶은 가사를 여기에 붙여넣으세요. 줄바꿈이나 문장부호를 기준으로 나눠요." required></textarea>
+        <div class="actions">
+          <button type="submit">연습 시작</button>
+        </div>
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+      </form>
+
+      <section id="practice" class="practice" aria-label="문장 연습" hidden>
+        <p id="progress" class="progress" aria-live="polite"></p>
+        <p id="sentence" class="sentence"></p>
+        <div class="actions">
+          <button id="previous" type="button">이전 문장</button>
+          <button id="next" type="button">다음 문장</button>
+        </div>
+      </section>
+    </main>
+    <script>
+      const form = document.querySelector("#lyrics-form");
+      const lyricsInput = document.querySelector("#lyrics");
+      const message = document.querySelector("#message");
+      const practice = document.querySelector("#practice");
+      const progress = document.querySelector("#progress");
+      const sentence = document.querySelector("#sentence");
+      const previousButton = document.querySelector("#previous");
+      const nextButton = document.querySelector("#next");
+      let sentences = [];
+      let currentIndex = 0;
+
+      function splitSentences(text) {
+        return text
+          .split(/\r?\n/)
+          .flatMap((line) => line.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) || [])
+          .map((part) => part.trim())
+          .filter(Boolean);
+      }
+
+      function showCurrentSentence() {
+        sentence.textContent = sentences[currentIndex];
+        progress.textContent = `${currentIndex + 1} / ${sentences.length} 문장`;
+        previousButton.disabled = currentIndex === 0;
+        nextButton.disabled = currentIndex === sentences.length - 1;
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        sentences = splitSentences(lyricsInput.value);
+        if (sentences.length === 0) {
+          message.textContent = "연습할 문장을 입력해 주세요.";
+          practice.hidden = true;
+          return;
+        }
+
+        message.textContent = "";
+        currentIndex = 0;
+        practice.hidden = false;
+        showCurrentSentence();
+      });
+
+      previousButton.addEventListener("click", () => {
+        if (currentIndex > 0) {
+          currentIndex -= 1;
+          showCurrentSentence();
+        }
+      });
+
+      nextButton.addEventListener("click", () => {
+        if (currentIndex < sentences.length - 1) {
+          currentIndex += 1;
+          showCurrentSentence();
+        }
+      });
+    </script>
+  </body>
+</html>
